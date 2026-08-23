@@ -173,6 +173,46 @@ Measured: with the panel open for 90 seconds, sampling the shell's child
 processes twice a second, this plugin issued **zero** requests. The chart redraw,
 the sun and moon times, and every setting are entirely local.
 
+## Review round 1 — `remote-build` capability (issue #1788, commit 8240043)
+
+The automated security baseline returned `review-required` at `8240043` with one
+capability and **no findings**:
+
+> **Remote source build (`remote-build`)** — The installation path builds,
+> installs, or directly executes source obtained from a remote repository.
+> `README.md:90`
+
+The bot notes that no change is strictly required — a maintainer can simply
+accept the capability. It was removed anyway, because every capability avoided
+is a review round skipped, and this one bought nothing.
+
+The trigger was a single line: the README documented an optional manual install
+alongside the sanctioned one.
+
+```sh
+git clone https://github.com/kairos-tech-oh/omarchy-nightsky-plugin
+cp -r omarchy-nightsky-plugin ~/.config/omarchy/plugins/kairos.night-sky
+omarchy restart shell
+```
+
+That block is gone. `omarchy plugin install <repo URL>` is now the only
+documented install path, which is the path the marketplace intends anyway.
+
+Removal instructions still cover both cases, as the submission contract
+requires: `omarchy plugin remove kairos.night-sky`, plus `rm -rf` on the plugin
+directory for anyone who placed it there by hand. Describing how to *remove* a
+hand-placed directory is not an install path and does not reintroduce the
+capability.
+
+The Development section keeps its tooling commands and now opens with "From a
+checkout of this repository" — prose rather than a runnable clone-and-install
+recipe.
+
+Verified afterwards: a grep for `git clone`, `curl … | sh`, `cargo install
+--git`, `pip install git+`, `go install …@` and `npm install …github` across the
+whole repository returns nothing. No runtime code changed in this round — the
+diff is README-only — so the checks and the bundled-data digests are unaffected.
+
 ## Verification performed
 
 - `omarchy plugin validate .` → exit 0

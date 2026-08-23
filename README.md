@@ -84,21 +84,15 @@ omarchy plugin install https://github.com/kairos-tech-oh/omarchy-nightsky-plugin
 
 Then add **Night Sky** to your bar from the Omarchy settings UI, under *Info*.
 
-To install from a local clone instead:
-
-```sh
-git clone https://github.com/kairos-tech-oh/omarchy-nightsky-plugin
-cp -r omarchy-nightsky-plugin ~/.config/omarchy/plugins/kairos.night-sky
-omarchy restart shell
-```
-
 ## Removal
 
 ```sh
 omarchy plugin remove kairos.night-sky
 ```
 
-Or, for a manual install:
+If the plugin directory was placed at `~/.config/omarchy/plugins/kairos.night-sky`
+by hand rather than by `omarchy plugin install`, remove that directory and
+restart the shell instead:
 
 ```sh
 rm -rf ~/.config/omarchy/plugins/kairos.night-sky
@@ -148,6 +142,8 @@ today"* or *"Polar night"* — and the bar shows `☀ 24h` or `☾ 24h`, rather 
 blank or a nonsense time.
 
 ## Development
+
+From a checkout of this repository:
 
 ```sh
 tools/run-checks.sh                          # every check: data, maths, QML engine
