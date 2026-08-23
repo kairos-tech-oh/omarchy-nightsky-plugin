@@ -67,8 +67,46 @@ function near(actual, expected, tolerance, label, unit) {
   return delta;
 }
 
+// This script is the only place in the repo that talks to the network -- the
+// plugin itself never does (see the header comment). These references are
+// fixed, developer-known endpoints, not user input, but a stalled or
+// oversized reply from any of them should still fail fast rather than hang
+// or exhaust the process running this in CI.
+const FETCH_TIMEOUT_MS = 15000;
+const RESPONSE_CAP_BYTES = 2 * 1024 * 1024;
+
+async function fetchCapped(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('timed out')), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.length;
+      if (received > RESPONSE_CAP_BYTES) {
+        controller.abort(new Error('response too large'));
+        throw new Error(`response from ${url} exceeded the ${RESPONSE_CAP_BYTES}-byte cap`);
+      }
+      chunks.push(value);
+    }
+    const body = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+    return {
+      ok: response.ok,
+      status: response.status,
+      text: async () => body.toString('utf8'),
+      json: async () => JSON.parse(body.toString('utf8')),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function getJson(url) {
-  const response = await fetch(url, { headers: { 'User-Agent': 'night-sky-checks' } });
+  const response = await fetchCapped(url, { headers: { 'User-Agent': 'night-sky-checks' } });
   if (!response.ok) throw new Error(`${response.status} for ${url}`);
   return response.json();
 }
@@ -242,7 +280,7 @@ async function horizons(command, whenIso) {
     + "&CENTER='500@399'"
     + `&START_TIME='${encodeURIComponent(startIso.replace('T', ' '))}'`
     + `&STOP_TIME='${encodeURIComponent(stopIso)}'&STEP_SIZE='1 m'&QUANTITIES='1'`;
-  const response = await fetch(url, { headers: { 'User-Agent': 'night-sky-checks' } });
+  const response = await fetchCapped(url, { headers: { 'User-Agent': 'night-sky-checks' } });
   if (!response.ok) throw new Error(`Horizons ${response.status}`);
   return parseHorizons(await response.text());
 }
