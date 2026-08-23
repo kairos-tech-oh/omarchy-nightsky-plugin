@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos.night-sky",
+  "name": "Night Sky",
+  "version": "1.0.0",
+  "author": "kairos",
+  "license": "MIT",
+  "description": "All-sky constellation chart for your location, with sunrise and sunset times. Stars, planets and the Moon are computed offline from bundled data.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Night Sky",
+    "description": "Constellations overhead right now, plus sunrise and sunset",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "magnitudeLimit": 5,
+      "showConstellationLines": "yes",
+      "showConstellationNames": "yes",
+      "showPlanets": "yes",
+      "showMilkyWay": "yes",
+      "timeFormat": "24h"
+    },
+    "schema": [
+      {
+        "key": "magnitudeLimit",
+        "type": "integer",
+        "label": "Faintest magnitude shown",
+        "min": 3,
+        "max": 6,
+        "step": 1,
+        "defaultValue": 5,
+        "description": "Higher shows more, fainter stars. 5 is about what a good suburban sky reveals; 6 is a dark rural site. Redraws locally - never makes a network request."
+      },
+      {
+        "key": "showConstellationLines",
+        "type": "enum",
+        "label": "Constellation lines",
+        "options": ["yes", "no"],
+        "defaultValue": "yes",
+        "description": "The stick figures joining each constellation's stars."
+      },
+      {
+        "key": "showConstellationNames",
+        "type": "enum",
+        "label": "Constellation names",
+        "options": ["yes", "no"],
+        "defaultValue": "yes",
+        "description": "Labels the larger constellations currently above the horizon."
+      },
+      {
+        "key": "showPlanets",
+        "type": "enum",
+        "label": "Planets and Moon",
+        "options": ["yes", "no"],
+        "defaultValue": "yes",
+        "description": "Mercury through Saturn at their real positions, and the Moon drawn at its current phase."
+      },
+      {
+        "key": "showMilkyWay",
+        "type": "enum",
+        "label": "Milky Way band",
+        "options": ["yes", "no"],
+        "defaultValue": "yes",
+        "description": "A faint band showing where the galaxy crosses the sky."
+      },
+      {
+        "key": "timeFormat",
+        "type": "enum",
+        "label": "Time format",
+        "options": ["24h", "12h"],
+        "defaultValue": "24h",
+        "description": "How sunrise, sunset and the bar's next-event time are written."
+      }
+    ]
+  }
+}

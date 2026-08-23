@@ -1,0 +1,4 @@
+# Output of tools/preview/render.sh. These are scratch renders used while
+# iterating on the chart; the committed preview.png at the repo root is the
+# marketplace card image and is tracked deliberately.
+tools/preview/*.png
