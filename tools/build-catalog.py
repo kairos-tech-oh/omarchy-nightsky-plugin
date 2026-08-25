@@ -17,11 +17,16 @@ Upstream: https://github.com/ofrohn/d3-celestial  (BSD-3-Clause, (c) 2015 Olaf F
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import math
 import os
+import socket
 import sys
 import tempfile
+import time
+import urllib.error
+import urllib.parse
 import urllib.request
 
 # An immutable 40-character commit, never a branch name. A branch would let the
@@ -72,14 +77,104 @@ OUT_PATH = os.path.join(HERE, os.pardir, "data", "Catalog.js")
 # --------------------------------------------------------------------------
 # fetching
 # --------------------------------------------------------------------------
+#
+# This script is a development tool: it never runs on a user's desktop, and the
+# plugin itself never requests any of these files. It still bounds every request
+# the way the runtime path does, because "it is only a dev tool" is exactly how
+# an unbounded read reaches a CI runner. The digest check below is not a
+# substitute for any of this -- it runs *after* the bytes are already in memory,
+# so it catches wrong content but not too much of it.
+#
+# Four independent limits, because each bounds something the others do not:
+#
+#   scheme/host  https only, to a hardcoded allowlist, re-checked on every
+#                redirect rather than only on the first request. urllib follows
+#                redirects by default, and a followed redirect is a destination
+#                that was never validated.
+#   address      every address the host resolves to must be public, so neither a
+#                redirect nor a poisoned answer can point the fetch at localhost
+#                or a private range.
+#   deadline     a wall clock across the whole body. urlopen's `timeout` is a
+#                socket-idle timer -- it resets on every byte, so a server
+#                sending one byte every 50 ms holds the connection open forever
+#                without the socket ever going idle.
+#   bytes        a hard ceiling on what is read into memory, failing closed
+#                rather than truncating.
+#
+# Residual risk, stated rather than implied: the address check resolves the name
+# and the connection then resolves it again, so this does not close a DNS
+# rebinding race. The host is one fixed public third party and the response is
+# digest-checked, which is what makes that acceptable here.
+
+ALLOWED_HOSTS = ("raw.githubusercontent.com",)
+
+# The largest real input is starnames.json at 680,627 bytes. 8 MiB is about
+# twelve times that and is still a hard bound.
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+BODY_DEADLINE_SEC = 120
+SOCKET_TIMEOUT_SEC = 30
+
+
+def check_destination(url):
+    """Allow only https to an allowlisted host resolving to public addresses."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https":
+        raise urllib.error.URLError("refusing non-https URL (scheme %r)" % parts.scheme)
+    host = (parts.hostname or "").lower()
+    if host not in ALLOWED_HOSTS:
+        raise urllib.error.URLError("refusing host not on the allowlist: %r" % host)
+    try:
+        infos = socket.getaddrinfo(host, parts.port or 443, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as exc:
+        raise urllib.error.URLError("cannot resolve %s: %s" % (host, exc))
+    for info in infos:
+        address = ipaddress.ip_address(info[4][0])
+        if (address.is_loopback or address.is_private or address.is_link_local
+                or address.is_reserved or address.is_multicast
+                or address.is_unspecified):
+            raise urllib.error.URLError(
+                "%s resolves to the non-public address %s" % (host, address))
+    return url
+
+
+class CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Re-runs the destination check on every hop, not only the first request."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        check_destination(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+OPENER = urllib.request.build_opener(CheckedRedirectHandler)
+
+
+def read_capped(response, cap, deadline):
+    """Read at most cap+1 bytes against a wall clock, or fail closed."""
+    chunks = []
+    total = 0
+    while total <= cap:
+        if time.monotonic() > deadline:
+            raise urllib.error.URLError("response body deadline exceeded")
+        chunk = response.read(65536)
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        chunks.append(chunk)
+    # cap+1 is read so a body sitting exactly at the ceiling stays
+    # distinguishable from one that was cut off, and the over-cap case fails
+    # closed: a truncated JSON document that still parses is worse than no data
+    # because it is silently wrong.
+    raise urllib.error.URLError("response exceeded the %d-byte cap" % cap)
+
 
 def fetch(name):
     """Download one upstream file and return its raw bytes."""
-    url = RAW_BASE + name
+    url = check_destination(RAW_BASE + name)
     sys.stderr.write("  fetching %s\n" % name)
     request = urllib.request.Request(url, headers={"User-Agent": "night-sky-build-catalog"})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        return response.read()
+    deadline = time.monotonic() + BODY_DEADLINE_SEC
+    with OPENER.open(request, timeout=SOCKET_TIMEOUT_SEC) as response:
+        return read_capped(response, MAX_RESPONSE_BYTES, deadline)
 
 
 def load_inputs(record):

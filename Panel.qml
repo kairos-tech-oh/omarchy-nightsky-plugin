@@ -285,8 +285,15 @@ Panel {
   // No redirects are followed: every URL passed in here is a hardcoded https
   // literal, so there is nothing to gain from chasing a 3xx, and a compromised
   // or misconfigured endpoint can't use one to redirect the request to an
-  // internal or private origin. --proto=https pins the protocol on top of
-  // that, so a URL can't be quietly downgraded to something curl also speaks.
+  // internal or private origin.
+  //
+  // --proto "=https" pins the protocol on top of that. The `=` prefix is the
+  // whole point and is easy to lose: curl treats an unprefixed protocol name as
+  // *add to the permitted set*, so `--proto=https` -- which is the form that
+  // reads correctly -- permits everything curl already allowed and restricts
+  // nothing. Measured on curl 8.21.0: with `--proto=https`, both
+  // `http://example.com/` and `file:///etc/passwd` still succeed; with
+  // `--proto "=https"` curl refuses each with "Protocol ... is disabled".
   //
   // cap+1 bytes are requested so a body sitting exactly at the ceiling stays
   // distinguishable from one that was cut off. The URL and every option travel
@@ -299,7 +306,7 @@ Panel {
     var command = ["timeout", "-k", "2", String(deadlineSec),
                    "sh", "-c", 'cap="$1"; shift; curl "$@" | head -c "$cap"', "sh",
                    String(capBytes + 1),
-                   "-fsS", "--proto=https", "--max-time", String(innerSec)]
+                   "-fsS", "--proto", "=https", "--max-time", String(innerSec)]
     if (extraArgs) command = command.concat(extraArgs)
     return command.concat(["--", String(url)])
   }

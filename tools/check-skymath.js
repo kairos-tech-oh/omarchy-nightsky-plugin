@@ -67,19 +67,48 @@ function near(actual, expected, tolerance, label, unit) {
   return delta;
 }
 
-// This script is the only place in the repo that talks to the network -- the
-// plugin itself never does (see the header comment). These references are
-// fixed, developer-known endpoints, not user input, but a stalled or
-// oversized reply from any of them should still fail fast rather than hang
-// or exhaust the process running this in CI.
+// This script and tools/build-catalog.py are the only places in the repo that
+// talk to the network -- the plugin itself never does (see the header comment).
+// These references are fixed, developer-known endpoints, not user input, but a
+// stalled, redirected or oversized reply from any of them should still fail
+// fast rather than hang or exhaust the process running this in CI.
+//
+// The four limits are the same ones the runtime path applies, for the same
+// reasons:
+//
+//   scheme/host  https only, to a hardcoded allowlist
+//   redirect     'error' rather than the default 'follow'. A followed redirect
+//                is a destination that was never validated -- the same reason
+//                the runtime drops curl's -L.
+//   deadline     one AbortController timer covering the whole operation,
+//                started before the request and cleared only in `finally`, so
+//                it bounds the body read as well as the connect. A socket-idle
+//                timeout would not: it resets on every byte.
+//   bytes        a hard ceiling checked as chunks arrive, failing closed.
 const FETCH_TIMEOUT_MS = 15000;
 const RESPONSE_CAP_BYTES = 2 * 1024 * 1024;
+const ALLOWED_HOSTS = new Set(['api.open-meteo.com', 'ssd.jpl.nasa.gov']);
+
+function checkDestination(url) {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`refusing non-https URL (scheme ${parsed.protocol}) for ${url}`);
+  }
+  if (!ALLOWED_HOSTS.has(parsed.hostname)) {
+    throw new Error(`refusing host not on the allowlist: ${parsed.hostname}`);
+  }
+  return url;
+}
 
 async function fetchCapped(url, options) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('timed out')), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+    const response = await fetch(checkDestination(url), Object.assign({}, options, {
+      signal: controller.signal,
+      redirect: 'error',
+    }));
+    if (!response.body) throw new Error(`no response body for ${url}`);
     const reader = response.body.getReader();
     const chunks = [];
     let received = 0;
