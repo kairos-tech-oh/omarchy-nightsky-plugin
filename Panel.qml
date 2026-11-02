@@ -170,8 +170,9 @@ Panel {
   }
 
   function switchPanel(direction) {
-    if (root.bar && root.bar.shell && typeof root.bar.shell.focusAdjacentPanel === "function")
-      root.bar.shell.focusAdjacentPanel(root.barIdentity, direction)
+    if (root.bar && typeof root.bar.switchPanelFrom === "function")
+      return root.bar.switchPanelFrom(root.barIdentity, direction)
+    return false
   }
 
   function setCenterHoverRevealSuppressed(value) {
