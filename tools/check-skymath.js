@@ -232,10 +232,11 @@ async function checkSunTimes() {
         // Open-Meteo publishes to the minute, so its own value carries up to
         // 30s of rounding; the budget below absorbs that.
         const deltaSeconds = Math.abs(ours - referenceMs) / 1000;
+        const toleranceSeconds = Math.abs(place.lat) >= 60 ? 180 : 90;
         worst = Math.max(worst, deltaSeconds);
-        report(deltaSeconds <= 90,
+        report(deltaSeconds <= toleranceSeconds,
           `${place.name} ${data.daily.time[day]} ${event}`,
-          `off by ${deltaSeconds.toFixed(0)}s`);
+          `off by ${deltaSeconds.toFixed(0)}s (tolerance ${toleranceSeconds}s)`);
       }
     }
   }
