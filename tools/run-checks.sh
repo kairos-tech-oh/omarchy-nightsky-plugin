@@ -29,6 +29,7 @@ fi
 note "SkyMath vs external references"
 if command -v node >/dev/null 2>&1; then
   node tools/check-skymath.js || status=1
+  node tools/check-panel.js || status=1
 else
   echo "  skipped: node not installed (development-only dependency)"
 fi
