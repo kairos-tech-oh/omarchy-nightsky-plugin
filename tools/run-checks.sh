@@ -29,6 +29,7 @@ fi
 note "SkyMath vs external references"
 if command -v node >/dev/null 2>&1; then
   node tools/check-skymath.js || status=1
+  node tools/check-panel.js || status=1
 else
   echo "  skipped: node not installed (development-only dependency)"
 fi
@@ -54,6 +55,9 @@ if [ -n "$qml_bin" ]; then
 else
   echo "  skipped: no qml runner found"
 fi
+
+note "shell conventions"
+tools/check-conventions.sh || status=1
 
 note "result"
 if [ "$status" -eq 0 ]; then

@@ -19,6 +19,7 @@
 import QtQuick
 import "../SkyMath.js" as SkyMath
 import "../Sanitise.js" as Sanitise
+import "../PanelLogic.js" as PanelLogic
 import "../data/Catalog.js" as Catalog
 
 QtObject {
@@ -135,6 +136,16 @@ QtObject {
     if (Sanitise.plainOneLine("Tromsø", 120) !== "Tromsø") return fail(53)
     if (Sanitise.plainOneLine(null, 40) !== "") return fail(54)
     if (Sanitise.plainOneLine(new Array(500).join("x"), 40).length !== 40) return fail(55)
+
+    var noon = Date.UTC(2026, 6, 1, 12, 5)
+    if (PanelLogic.formatClock(noon, 9 * 3600, false) !== "21:05") return fail(90)
+    if (PanelLogic.formatClock(Date.UTC(2026, 6, 1, 0, 7), 0, true) !== "12:07 AM") return fail(91)
+    if (PanelLogic.formatOffset(5.5 * 3600) !== "UTC+5:30" || PanelLogic.formatOffset(-4 * 3600) !== "UTC-4") return fail(92)
+    if (PanelLogic.foreignClockLine(noon, 9 * 3600, "Asia/Tokyo", -4 * 3600, false) !== "21:05 local, Asia/Tokyo · UTC+9") return fail(93)
+    if (PanelLogic.relativeToNow(noon + 125 * 60000, noon) !== "in 2h 5m") return fail(94)
+    if (PanelLogic.dayLengthLabel({ polar: "day" }) !== "Sun up all day") return fail(95)
+    var cmd = PanelLogic.cappedCurl("https://x/", 10, 0)
+    if (cmd[cmd.indexOf("--proto") + 1] !== "=https" || cmd[cmd.indexOf("--max-time") + 1] !== "1") return fail(96)
 
     Qt.exit(0)
   }

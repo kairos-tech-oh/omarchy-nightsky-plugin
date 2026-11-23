@@ -146,7 +146,7 @@ blank or a nonsense time.
 From a checkout of this repository:
 
 ```sh
-tools/run-checks.sh                          # every check: data, maths, QML engine
+tools/run-checks.sh                          # every check: data, maths, panel logic, QML engine
 tools/preview/render.sh                      # render the chart to a PNG, here and now
 tools/preview/render.sh 2026-01-15T02:00:00Z 40.13 -82.93
 tools/preview/render.sh 2026-08-23T11:00:00Z -33.87 151.21   # southern hemisphere
@@ -165,6 +165,7 @@ would take down the bar, lock screen and polkit agent every time.
 | `Panel.qml` | Location, sun and Moon times, search, settings |
 | `SkyChart.qml` | The chart. Lazily loaded — the catalogue is not parsed until the panel is first opened |
 | `SkyMath.js` | All positional astronomy |
+| `PanelLogic.js` | The panel's clocks, UTC offsets, relative times, day length, and the capped curl command; unit-tested by `tools/check-panel.js` |
 | `data/Catalog.js` | The bundled sky. Generated; see `data/PROVENANCE.md` |
 | `tools/` | Catalogue generator, checks, preview renderer |
 
